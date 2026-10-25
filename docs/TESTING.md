@@ -21,11 +21,19 @@ Engine modules bundled for Node: geodesy (distances, antimeridian polygons), IPC
 
 Headless Chromium with WebGL and WebGPU on SwiftShader, against `tests/e2e/mock-server.mjs`, which stands in for Claude (scripted tool calls and a fact-checker reply), Terrarium tiles (generated from the DEM) and the live feeds:
 
-boot and Wasm flood · local AI transport · 1 M GPU wind particles · streamed imagery refining from zoom ~2 at global view to zoom 15–17 at a few km altitude (mock tiles cut from the world image) · neighbourhood labels at street zoom · live storms, fires, quakes · Katrina replay and skill table · storm ensemble · point-and-say volcano · regional terrain from tiles on WebGPU · dynamic surge advancing · equilibrium flood · agent calls the surge model · fact-checker removes an untraced number · numbers linked to sources · provenance popover · spherical output · no page errors. Screenshots land in `build/e2e/`.
+boot and Wasm flood · local AI transport · 1 M GPU wind particles · streamed imagery refining from zoom ~2 at global view to zoom 15–17 at a few km altitude (mock tiles cut from the world image) · neighbourhood labels at street zoom · 3D buildings at street level (mock footprints) · failed imagery tiles retried or filled · live storms, fires, quakes · Katrina replay and skill table · storm ensemble · point-and-say volcano · regional terrain from tiles on WebGPU · dynamic surge advancing · equilibrium flood · agent calls the surge model · fact-checker removes an untraced number · numbers linked to sources · provenance popover · spherical output · no page errors. Screenshots land in `build/e2e/`.
 
 A separate browser check (`tests/browser/swe_entry.js`) runs the WebGPU and CPU solvers side by side: identical wet-cell counts and volumes, max depth difference < 0.1 mm after 8 simulated hours.
 
 The end-to-end run takes 5–8 minutes in a software-rendered browser; run it on its own (two at once compete for the CPU and time out).
+
+## Load time (`tests/perf/load.py`)
+
+`python3 tests/perf/load.py [dist-dir] [mbit/s]` serves a build with gzip (as GitHub Pages does), opens it in headless Chromium on a throttled connection with 40 ms latency, and reports time to the first globe frame and bytes transferred. Outside requests (map tiles) are blocked so only the app itself is measured.
+
+## Unit: OSM buildings (`tests/osm.test.mjs`)
+
+Heights from `height`, `building:levels`, `min_height` and building type; multipolygon outer rings; open rings skipped; tile bounds and the Overpass query.
 
 ## Not covered by automated tests
 

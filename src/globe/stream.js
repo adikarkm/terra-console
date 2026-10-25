@@ -52,6 +52,10 @@ const TERRAIN = { direct: "https://s3.amazonaws.com/elevation-tiles-prod/terrari
 
 export const ST = { tiles: null, wrap: null, basemap: "satellite", on: false, ready: false, errors: 0, loaded: 0, uniforms: null, plugin: null };
 
+export function terrainTileUrl(z, x, y) {
+  return urlFor("terrain").replace("{z}", z).replace("{x}", x).replace("{y}", y);
+}
+
 function urlFor(kind, key) {
   if (kind === "terrain") return S.local ? "/api/terrain/{z}/{x}/{y}.png" : TERRAIN.direct;
   return S.local ? `/api/tiles/${key}/{z}/{x}/{y}` : BASEMAPS[key].direct;

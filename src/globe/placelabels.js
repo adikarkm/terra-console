@@ -1,18 +1,27 @@
 // Place names that appear as you zoom: countries from far away, then big cities, then towns
 // (every GeoNames place with 5,000+ people). Labels never overlap; bigger places win.
-import TOWNS_FLAT from "../data/generated/towns.json";
-import { COUNTRIES } from "../data/places.js";
+import { COUNTRIES, CITIES } from "../data/places.js";
 import { G, project, viewCenter, onFrame } from "./scene.js";
 import { DEG } from "../util/geo.js";
 
-const N = TOWNS_FLAT.length / 4;
-const towns = new Array(N);
-for (let i = 0; i < N; i++) towns[i] = { name: TOWNS_FLAT[i * 4], lat: TOWNS_FLAT[i * 4 + 1], lon: TOWNS_FLAT[i * 4 + 2], pop: TOWNS_FLAT[i * 4 + 3] };
-
-// 2° buckets for fast lookups around the view
-const grid = new Map();
+// Cities over 100k are labelled from the start; the 49,000 towns (1.6 MB) load after the globe is up.
+let towns = [];
+let grid = new Map();
 const key = (la, lo) => `${Math.floor(la / 2)},${Math.floor(lo / 2)}`;
-for (const t of towns) { const k = key(t.lat, t.lon); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); }
+function index(list) {
+  towns = list.slice().sort((a, b) => b.pop - a.pop);
+  grid = new Map();
+  for (const t of towns) { const k = key(t.lat, t.lon); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(t); }
+}
+index(CITIES.map((c) => ({ name: c.name, lat: c.lat, lon: c.lon, pop: c.pop })));
+export function loadTowns() {
+  return import("../data/generated/towns.json").then(({ default: F }) => {
+    const n = F.length / 4, list = new Array(n);
+    for (let i = 0; i < n; i++) list[i] = { name: F[i * 4], lat: F[i * 4 + 1], lon: F[i * 4 + 2], pop: F[i * 4 + 3] };
+    index(list);
+    PL.townsLoaded = true;
+  });
+}
 
 // country label points: centroid of each country's largest ring
 const countryPts = COUNTRIES.map((c) => {
@@ -24,7 +33,7 @@ const countryPts = COUNTRIES.map((c) => {
   return { name: c.name, lat: la / best.length, lon: ((((lo / best.length) + 180) % 360) + 360) % 360 - 180, size: bestN };
 }).filter(Boolean).sort((a, b) => b.size - a.size);
 
-export const PL = { on: true, el: null, pool: [], shown: [], t: 0 };
+export const PL = { on: true, el: null, pool: [], shown: [], t: 0, townsLoaded: false };
 
 export function initPlaceLabels() {
   PL.el = document.getElementById("placeLabels");

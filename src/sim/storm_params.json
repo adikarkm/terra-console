@@ -1,0 +1,26 @@
+{
+ "global": {
+  "steer": 0.45,
+  "betaU": -0.75,
+  "betaV": 2,
+  "tau": 48,
+  "mpiMax": 140,
+  "mpiLat0": 20,
+  "mpiLat1": 40,
+  "tauI": 48,
+  "tauW": 24
+ },
+ "basins": {
+  "NA": {
+   "steer": 0.45,
+   "betaU": 0,
+   "betaV": 2,
+   "tau": 48,
+   "mpiMax": 110,
+   "mpiLat0": 17,
+   "mpiLat1": 45,
+   "tauI": 160,
+   "tauW": 48
+  }
+ }
+}

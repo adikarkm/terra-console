@@ -6,13 +6,13 @@
   "private": true,
   "scripts": {
     "fetch-raw": "sh tools/fetch_raw.sh",
-    "prepare-data": "python3 tools/prepare_textures.py && node tools/prepare_data.mjs && node tools/export_geo.mjs && python3 tools/prepare_population.py && node tools/prepare_storms.mjs",
+    "prepare-data": "python3 tools/prepare_textures.py && python3 tools/make_webp.py && node tools/prepare_data.mjs && node tools/export_geo.mjs && python3 tools/prepare_population.py && node tools/prepare_ibtracs.mjs",
     "build": "node build.mjs",
     "build:dev": "node build.mjs --dev",
     "start": "node server/server.js",
     "dev": "node build.mjs --dev && node server/server.js",
     "calibrate": "node tools/calibrate_storms.mjs",
-    "test:unit": "node tests/build_test_src.mjs && node tests/swe.test.mjs && node tests/unit.test.mjs && node tests/openrouter.test.mjs && node tools/test_flood.mjs",
+    "test:unit": "node tests/build_test_src.mjs && node tests/swe.test.mjs && node tests/unit.test.mjs && node tests/openrouter.test.mjs && node tests/osm.test.mjs && node tools/test_flood.mjs",
     "test:e2e": "python3 tests/e2e/run.py",
     "test": "npm run test:unit && npm run test:e2e"
   },

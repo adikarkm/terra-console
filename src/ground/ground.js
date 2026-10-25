@@ -8,7 +8,8 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { TilesRenderer } from "3d-tiles-renderer";
 import { GLTFExtensionsPlugin, ReorientationPlugin } from "3d-tiles-renderer/plugins";
 import { GoogleCloudAuthPlugin } from "3d-tiles-renderer/core/plugins";
-import { DropInViewer, SceneFormat } from "@mkkellogg/gaussian-splats-3d";
+// the splat renderer (~240 KB) loads only when a capture is opened
+const splats = () => import("@mkkellogg/gaussian-splats-3d");
 import { S, on } from "../state.js";
 import { $, toast } from "../util/dom.js";
 import { sampleDEM, demIndex } from "../data/dem.js";
@@ -166,6 +167,8 @@ async function loadSplat(file) {
   try {
     if (V.splat) { V.scene.remove(V.splat); V.splat.dispose?.(); }
     const ext = file.name.toLowerCase().split(".").pop();
+    $("#gStatus").textContent = "Loading the splat renderer…";
+    const { DropInViewer, SceneFormat } = await splats();
     const format = { ply: SceneFormat.Ply, splat: SceneFormat.Splat, ksplat: SceneFormat.KSplat, spz: SceneFormat.Spz }[ext];
     if (format == null) { toast("Use a .ply, .splat, .ksplat or .spz Gaussian Splat file."); return; }
     V.splat = new DropInViewer({ sharedMemoryForWorkers: false, gpuAcceleratedSort: false });

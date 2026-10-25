@@ -28,16 +28,23 @@ import { initLive } from "./live/live.js";
 import { initEnsembleView } from "./modes/ensembleview.js";
 import { initDeixis, onInterim, resolveDeixis } from "./input/deixis.js";
 import { initStream, setBasemap, setExaggeration, streamStats, setStream } from "./globe/stream.js";
-import { initPlaceLabels, setPlaceLabels } from "./globe/placelabels.js";
+import { initPlaceLabels, setPlaceLabels, loadTowns } from "./globe/placelabels.js";
+import { initBuildings, setBuildings, BL } from "./globe/buildings.js";
 import { sampleDEM } from "./data/dem.js";
 import { nearestCity, countryAt } from "./data/places.js";
 import { fmtLat, fmtLon } from "./util/geo.js";
 
 let lastHover = null;
 
+const bootStep = (t) => { const e = document.getElementById("bootStep"); if (e) e.textContent = t; };
+
 async function boot() {
+  bootStep("Loading elevation and population…");
   await loadDEM();
+  bootStep("Building the globe…");
   initScene($("#gl"));
+  // hide the boot screen once the first frames are on screen
+  requestAnimationFrame(() => requestAnimationFrame(() => { const b = document.getElementById("boot"); if (b) { b.classList.add("gone"); setTimeout(() => b.remove(), 600); } }));
   initLayers();
   initWhatIf();
   initAsk();
@@ -73,6 +80,10 @@ async function boot() {
   window.terra = { S, G, regional: REGIONAL, flood: Flood, runCommand, streamStats, setStream };
   await initAI();
   initStream();
+  initBuildings();
+  window.terra.buildings = BL;
+  // the 49,000 town names are not needed for the first view
+  setTimeout(() => loadTowns().catch((e) => console.warn("town names failed to load", e)), 300);
   if (S.local) loadLiveWind();
   $("#roomLocal").hidden = !S.local;
   if (!S.local && !window.claude) $("#roomInfo").textContent = "Collaboration needs the published page (shared room) or the local server (named rooms).";
@@ -151,6 +162,7 @@ function wireUI() {
   $("#basemap").addEventListener("change", (e) => setBasemap(e.target.value));
   $("#exag").addEventListener("change", (e) => setExaggeration(+e.target.value));
   $("#lyPlaces").addEventListener("change", (e) => setPlaceLabels(e.target.checked));
+  $("#lyBuildings").addEventListener("change", (e) => setBuildings(e.target.checked));
   $("#lyDensity").addEventListener("change", (e) => (e.target.checked ? showDataLayer("base:density", { kind: "density" }) : clearLayers("base:density")));
   $("#lyNarrate").addEventListener("change", (e) => (ASK.narrate = e.target.checked));
   $("#sphereOut").addEventListener("change", (e) => setSphereOutput(e.target.value));
@@ -235,5 +247,6 @@ function scoop(p) {
 
 boot().catch((e) => {
   console.error(e);
+  bootStep("Terra Console couldn't start: " + (e.message || e));
   toast("Terra Console couldn't start: " + (e.message || e), 8000);
 });

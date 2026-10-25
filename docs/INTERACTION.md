@@ -59,6 +59,10 @@ Typed commands use your last mouse position on the globe. "This region" with a d
 
 Layers → Wake word "Terra": only phrases that start with "Terra" (or "hey Terra") are acted on; the mic button glows when it hears the wake word. Off by default, so every phrase is a command.
 
+## 3D buildings (`globe/buildings.js`)
+
+Below about 9 km eye altitude, with streamed imagery on, OpenStreetMap building footprints load for the ~1 km map tiles around the view (one more ring when you tilt toward the horizon) and are extruded to their tagged height, `building:levels` × 3.2 m, or a typical height for the building type. They stand on the same elevation tiles as the streamed terrain. Layers → 3D buildings turns them off.
+
 ## Mouse and touch (`input/pointer.js`)
 
 - Drag: spin (the ground under the cursor follows the cursor at every altitude), or draw with the active tool (Draw region, Hurricane, Event). Shift-drag draws a region from any tool.

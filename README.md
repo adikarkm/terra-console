@@ -2,7 +2,7 @@
 
 **A holographic Earth you can question and change.** Point at any place on the planet with your mouse, your hands or your voice, ask what's there, then ask "what if?" and watch floods, hurricanes, eruptions and fires play out with real physics on real data.
 
-**[▶ Live demo](https://adikarkm.github.io/terra-console/)**: runs in the browser with streamed satellite imagery and offline analysis (AI answers and live feeds need the local server below).
+**[▶ Live demo](https://adikarkm.github.io/terra-console/)**: runs in the browser with streamed satellite imagery, 3D buildings and offline analysis (AI answers and live feeds need the local server below).
 
 ![Terra Console: the holographic globe in Ask mode](docs/images/hero.jpg)
 
@@ -48,7 +48,7 @@ The two modes hand off to each other: ask *"what if the sea rose 2 metres here?"
 ## Running it
 
 ### 1. Built-in mode (no setup)
-Open `dist/index.html` directly in Chrome or Edge. The globe, both modes, the flood model, storms, the timeline, layers and sound all work with the built-in data. Streamed imagery, live feeds and AI answers need the local server below.
+Open the [live demo](https://adikarkm.github.io/terra-console/), or open `dist/terra-console-offline.html` directly from disk in Chrome or Edge (one self-contained file). The globe, both modes, the flood model, storms, the timeline, layers and sound all work with the built-in data. AI answers and live feeds need the local server below; streamed imagery and 3D buildings need an internet connection.
 
 ### 2. Local server (everything)
 Requirements: Node 18+. Python 3 with numpy, scipy and Pillow only if you want to rebuild the data.
@@ -56,7 +56,7 @@ Requirements: Node 18+. Python 3 with numpy, scipy and Pillow only if you want t
 ```bash
 npm install
 cp .env.example .env        # add a free OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) for AI answers
-npm run build               # builds dist/index.html (data is prebuilt)
+npm run build               # builds dist/ (web build + single-file offline copy; data is prebuilt)
 npm start                   # http://localhost:3000
 ```
 

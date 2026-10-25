@@ -1,6 +1,6 @@
 # Architecture
 
-Terra Console is a single-page app bundled by esbuild into one self-contained HTML file (`dist/index.html`): three.js, the libraries, the city and country data, the textures and the WebAssembly kernel are all inlined. The same file runs as a published artifact, behind the local server, or opened directly.
+Terra Console is a single-page app bundled by esbuild in two forms from the same source: a code-split web build (`dist/index.html` plus hashed scripts and textures) for the local server and GitHub Pages, and one self-contained HTML file (`dist/terra-console-offline.html`, and `dist/artifact.html` for publishing) with three.js, the libraries, data, textures and the WebAssembly kernel inlined.
 
 ## Module map
 
@@ -120,5 +120,22 @@ Each feature checks for its transport at runtime and degrades with a clear messa
 
 `build.mjs`:
 1. compiles `wasm/flood.ts` with AssemblyScript (`--runtime stub -O3`, ~2 KB),
-2. bundles `src/main.js` with esbuild (IIFE, minified, ASCII output; PNG/JPG as data URLs, Wasm as bytes, JSON inline),
-3. writes `dist/index.html` (standalone document) and `dist/artifact.html` (body content for publishing).
+2. **single-file build**: bundles `src/main.js` with esbuild (IIFE, minified, ASCII output; images as data URLs, Wasm as bytes, JSON inline) into `dist/terra-console-offline.html` (opens from disk) and `dist/artifact.html` (body content for publishing),
+3. **web build**: the same entry as ES modules with code splitting: `dist/index.html`, `app-[hash].js`, shared and lazy chunks `c-*-[hash].js`, textures in `dist/assets/` (hashed, served `immutable`). `index.html` preloads the elevation and population images and the entry's chunks so they download in parallel.
+
+### Loading
+
+What the first frame needs comes first; everything else arrives later or on demand:
+
+| Item | Size (web build) | When |
+|---|---|---|
+| Entry script (three.js, app) | ~370 KB (~110 KB gzip) | immediately |
+| Elevation (lossless WebP, decodes to the same pixels as `dem.png`) | 398 KB | preloaded, before the first frame |
+| World image preview (1024 px WebP, inlined) | 44 KB | first frame |
+| World image (4096 px WebP) | 628 KB | swapped in when it arrives |
+| Population and countries raster (lossless WebP) | 636 KB | in the background; the flood engine waits for it |
+| Town names (49,000) | 1.6 MB (~400 KB gzip) | 0.3 s after start; cities over 100k are labelled until then |
+| Storm archive | lazy chunk | a few seconds after start, or when the history panel is used |
+| Gaussian Splat renderer | ~240 KB | when a capture is opened |
+
+`tests/perf/load.py` measures it on a throttled connection (headless Chromium, gzip like GitHub Pages): first globe on screen went from 8.2 s to 2.9 s at 5 Mbit/s and from 3.2 s to 1.2 s at 20 Mbit/s compared with the previous single 7.4 MB file.

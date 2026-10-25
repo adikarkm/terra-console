@@ -19,6 +19,8 @@
 | Country boundaries 1:50m | country raster | Natural Earth via `world-atlas` | public domain |
 | Atlantic hurricane tracks 1975–2024 | replay, calibration, validation | NOAA NHC HURDAT2, as packaged in dplyr's `storms` | public domain |
 
+The browser loads lossless WebP copies of `dem.png` and `pop.png` (`assets/*.webp`, identical pixels, ~40% smaller) and a lossy WebP of the world image; regenerate them with `python3 tools/make_webp.py` after changing the PNGs.
+
 Rebuild with `npm run prepare-data` (requires Python 3 with numpy, scipy, Pillow).
 
 ## Live (local server)
@@ -35,6 +37,7 @@ Rebuild with `npm run prepare-data` (requires Python 3 with numpy, scipy, Pillow
 | Active hurricanes | `/api/live/storms` | NOAA NHC CurrentStorms.json + KMZ cones/tracks | public domain |
 | Active fires | `/api/live/fires` | NASA FIRMS VIIRS S-NPP NRT (needs `FIRMS_MAP_KEY`) | NASA open data |
 | Recent earthquakes | `/api/live/quakes` | USGS FDSN | public domain |
+| 3D buildings | `/api/buildings/15/x/y` (local, cached in memory and `build/cache/`) or the Overpass API directly (static site) | OpenStreetMap via Overpass (overpass-api.de, with mirrors) | ODbL; "© OpenStreetMap contributors" shown on screen while buildings are visible |
 | Photorealistic 3D Tiles | browser, your key | Google Map Tiles API | Google terms; attribution shown in ground view |
 | Hand tracking model | browser | MediaPipe Hands via jsDelivr | Apache 2.0 |
 

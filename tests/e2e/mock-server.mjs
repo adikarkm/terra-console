@@ -1,6 +1,7 @@
 // Mock backend for end-to-end tests: serves the built app and stands in for Claude, the terrain
 // tiles and the live hazard feeds, so every code path can run without network access.
 import http from "node:http";
+import { tileBBox } from "../../src/util/osm.js";
 import fs from "node:fs";
 import zlib from "node:zlib";
 import { PNG } from "pngjs";
@@ -110,10 +111,27 @@ http.createServer(async (req, res) => {
   }
   if (m) { tilesServed.imagery++; tilesServed.maxZ = Math.max(tilesServed.maxZ, +m[2]); res.writeHead(200, { "content-type": "image/png" }); return res.end(imageryTile(+m[2], +m[3], +m[4])); }
   if (u.pathname === "/__tiles") return json(tilesServed);
+  m = u.pathname.match(/^\/api\/buildings\/(\d+)\/(\d+)\/(\d+)$/);
+  if (m) {
+    // a block grid of footprints with varied heights, like a city tile
+    tilesServed.buildings = (tilesServed.buildings || 0) + 1;
+    const b = tileBBox(+m[1], +m[2], +m[3]), rows = [];
+    const dLat = (b.n - b.s) / 14, dLon = (b.e - b.w) / 14;
+    for (let i = 1; i < 13; i++) for (let j = 1; j < 13; j++) {
+      const la = b.s + i * dLat, lo = b.w + j * dLon, h = 6 + ((i * 7 + j * 13) % 9) * 6;
+      rows.push([h, 0, la, lo, la, lo + dLon * 0.7, la + dLat * 0.7, lo + dLon * 0.7, la + dLat * 0.7, lo]);
+    }
+    return json({ b: rows });
+  }
   if (u.pathname === "/api/live/storms") return json(storms);
   if (u.pathname === "/api/live/fires") return json(fires);
   if (u.pathname === "/api/live/quakes") return json(quakes);
   if (u.pathname.startsWith("/api/")) return json({ error: "offline in mock" }, 502);
-  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  res.end(fs.readFileSync("dist/index.html"));
+  const f = "dist" + (u.pathname === "/" ? "/index.html" : u.pathname);
+  if (!f.includes("..") && fs.existsSync(f) && fs.statSync(f).isFile()) {
+    const type = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".webp": "image/webp", ".png": "image/png" }[f.slice(f.lastIndexOf("."))] || "application/octet-stream";
+    res.writeHead(200, { "content-type": type });
+    return res.end(fs.readFileSync(f));
+  }
+  res.writeHead(404); res.end("not found");
 }).listen(PORT, () => console.log("mock on", PORT));

@@ -93,6 +93,7 @@ export async function initFlood() {
     pending.delete(e.data.id);
     e.data.error ? p.rej(new Error(e.data.error)) : p.res(e.data);
   };
+  await DEM.popReady;
   const r = await call({ type: "init", W: DEM.W, H: DEM.H, wasm: WASM_BYTES, elev: DEM.elev.slice(), cls: DEM.cls.slice(), row: DEM.rowArea.slice(), pop: DEM.pop.slice(), cty: DEM.country.slice() });
   Object.assign(Flood, { ready: true, engine: r.engine, ms: r.ms, spill: r.spill });
   return Flood;

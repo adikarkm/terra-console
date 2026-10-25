@@ -157,6 +157,7 @@ export function showDataLayer(id, { kind, area, maxElev = 10, sea = 2, palette, 
     summary = { countries: COUNTRIES.length };
   } else {
     const { W, H, elev, cls } = DEM;
+    const POP = DEM.pop || new Float32Array(W * H); // population finishes loading shortly after start
     const spill = Flood.spill;
     const pal = PALETTES[palette || (kind === "flood" ? "depth" : kind === "elevation" ? "cool" : kind === "density" || kind === "exposure" ? "heat" : "risk")];
     const img = new ImageData(W, H);
@@ -171,15 +172,15 @@ export function showDataLayer(id, { kind, area, maxElev = 10, sea = 2, palette, 
         const lon = ((xx + 0.5) / W) * 360 - 180;
         if (poly && !pointInPoly({ lat, lon }, poly)) continue;
         let t;
-        if (kind === "density") { const pp = DEM.pop[i]; if (pp < 50) continue; t = Math.min(1, Math.log10(pp) / 6.5); }
-        else if (kind === "exposure") { if (!spill || spill[i] > sea || DEM.pop[i] < 100) continue; t = Math.min(1, Math.log10(DEM.pop[i]) / 6.5); }
+        if (kind === "density") { const pp = POP[i]; if (pp < 50) continue; t = Math.min(1, Math.log10(pp) / 6.5); }
+        else if (kind === "exposure") { if (!spill || spill[i] > sea || POP[i] < 100) continue; t = Math.min(1, Math.log10(POP[i]) / 6.5); }
         else if (kind === "lowland") { if (elev[i] > maxElev) continue; t = 1 - elev[i] / maxElev; }
         else if (kind === "flood") { if (!spill || spill[i] > sea) continue; t = Math.min(1, (sea - elev[i]) / Math.max(1, sea)); }
         else { t = Math.min(1, Math.max(0, elev[i]) / 4000); }
         const c = lerpColor(pal, t);
         const o = (y * W + x) * 4;
         img.data[o] = c.r * 255; img.data[o + 1] = c.g * 255; img.data[o + 2] = c.b * 255; img.data[o + 3] = 200;
-        cells++; km2 += ra; people += DEM.pop[i];
+        cells++; km2 += ra; people += POP[i];
       }
     }
     const tmp = document.createElement("canvas");

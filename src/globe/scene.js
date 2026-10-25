@@ -1,6 +1,7 @@
 // Three.js scene: holographic globe, atmosphere, console rings, starfield, camera control.
 import * as THREE from "three";
-import EARTH_URL from "../../assets/earth.jpg";
+import EARTH_URL from "../../assets/earth.webp";
+import EARTH_PREVIEW from "../../assets/earth-1k.webp?inline"; // 44 KB, shown while the 4096 px image streams in
 import { DEM } from "../data/dem.js";
 import { ll2v, v2ll, DEG, geometryToEllipsoid } from "../util/geo.js";
 import { S, emit } from "../state.js";
@@ -164,9 +165,14 @@ export function initScene(canvas) {
   overlayTex.colorSpace = THREE.NoColorSpace;
 
   const loader = new THREE.TextureLoader();
-  const dayTex = loader.load(EARTH_URL);
+  const dayTex = loader.load(EARTH_PREVIEW);
   dayTex.colorSpace = THREE.NoColorSpace;
   dayTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  // swap in the full-resolution image when it arrives (same texture object, so every user updates)
+  const full = new Image();
+  full.decoding = "async";
+  full.onload = () => { dayTex.image = full; dayTex.needsUpdate = true; G.earthFull = true; };
+  full.src = EARTH_URL;
 
   const uniforms = {
     dayTex: { value: dayTex },

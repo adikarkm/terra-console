@@ -18,6 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import zlib from "node:zlib";
+import { OVERPASS, overpassQuery, compactBuildings } from "../src/util/osm.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -385,6 +386,48 @@ async function imageryTile(pathname, res) {
   res.end(hit.buf);
 }
 
+// ---- OpenStreetMap buildings (Overpass), one zoom-15 tile per request, cached --------------------
+// Overpass is a shared free service: one request at a time from this server, a 45 s timeout, the
+// next mirror on failure, and answers kept in memory (and on disk in build/cache) so a city is
+// fetched once.
+const bCache = new Map();
+const bInflight = new Map();
+let bChain = Promise.resolve();
+const B_DIR = path.join(ROOT, "build", "cache", "buildings");
+async function buildings(pathname, res) {
+  const m = pathname.match(/^\/api\/buildings\/(\d{1,2})\/(\d+)\/(\d+)$/);
+  if (!m) return send(res, 400, { error: "bad tile" });
+  const [z, x, y] = [+m[1], +m[2], +m[3]];
+  if (z < 14 || z > 16 || x >= 2 ** z || y >= 2 ** z) return send(res, 400, { error: "zoom 14-16 only" });
+  const key = `${z}-${x}-${y}`;
+  let hit = bCache.get(key);
+  const file = path.join(B_DIR, key + ".json");
+  if (!hit && fs.existsSync(file)) { hit = fs.readFileSync(file); bCache.set(key, hit); }
+  if (!hit) {
+    let p = bInflight.get(key);
+    if (!p) {
+      p = (bChain = bChain.catch(() => {}).then(async () => {
+        let last = "failed";
+        for (const ep of OVERPASS) {
+          try {
+            const r = await fetch(ep, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "TerraConsole/1.0 (+local research viewer)" }, body: "data=" + encodeURIComponent(overpassQuery(z, x, y)), signal: AbortSignal.timeout(45000) });
+            if (r.ok) return Buffer.from(JSON.stringify({ b: compactBuildings(await r.json()) }));
+            last = `${new URL(ep).host} ${r.status}`;
+          } catch (e) { last = `${new URL(ep).host} ${e.name === "TimeoutError" ? "timeout" : e.message}`; }
+        }
+        throw new Error(last);
+      })).finally(() => bInflight.delete(key));
+      bInflight.set(key, p);
+    }
+    hit = await p;
+    bCache.set(key, hit);
+    if (bCache.size > 400) bCache.delete(bCache.keys().next().value);
+    try { fs.mkdirSync(B_DIR, { recursive: true }); fs.writeFileSync(file, hit); } catch {}
+  }
+  res.writeHead(200, { "content-type": "application/json", "cache-control": "public, max-age=86400" });
+  res.end(hit);
+}
+
 const GIBS_OK = new Set(["MODIS_Terra_CorrectedReflectance_TrueColor", "VIIRS_SNPP_CorrectedReflectance_TrueColor", "VIIRS_Black_Marble", "MODIS_Terra_NDVI_8Day"]);
 async function gibs(q, res) {
   const layer = q.get("layer"), date = q.get("date") || "";
@@ -402,13 +445,15 @@ async function gibs(q, res) {
 }
 
 // ---- static files -------------------------------------------------------------------------------
-const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json", ".wasm": "application/wasm" };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".json": "application/json", ".wasm": "application/wasm" };
 function serveStatic(pathname, res) {
   const file = path.join(ROOT, "dist", pathname === "/" ? "index.html" : path.normalize(pathname).replace(/^(\.\.[/\\])+/, ""));
   if (!file.startsWith(path.join(ROOT, "dist"))) return send(res, 403, "forbidden", "text/plain");
   fs.readFile(file, (err, data) => {
     if (err) return send(res, 404, pathname === "/" ? "Run `npm run build` first." : "not found", "text/plain");
-    res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream" });
+    // hashed build outputs never change, so the browser can keep them; the page itself is revalidated
+    const hashed = /[\\/](app|c)-[^\\/]+\.js$|[\\/]assets[\\/]/.test(file);
+    res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream", "cache-control": hashed ? "public, max-age=31536000, immutable" : "no-cache" });
     res.end(data);
   });
 }
@@ -429,6 +474,7 @@ async function handler(req, res) {
       case "/api/live/quakes": return send(res, 200, await quakes(new URLSearchParams("days=1&minmag=2.5")));
       default:
         if (u.pathname.startsWith("/api/terrain/")) return await terrain(u.pathname, res);
+        if (u.pathname.startsWith("/api/buildings/")) return await buildings(u.pathname, res);
         if (u.pathname.startsWith("/api/tiles/")) return await imageryTile(u.pathname, res);
         return serveStatic(u.pathname, res);
     }

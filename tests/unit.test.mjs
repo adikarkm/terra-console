@@ -51,12 +51,24 @@ const ok = (msg) => { n++; console.log("ok ", msg); };
 }
 // storms
 {
+  await E.loadStorms();
   const k = E.findStorm("Katrina", 2005);
   assert.ok(k && Math.max(...k.p.map((q) => q[3])) >= 150, "Katrina peak ≥ 150 kt");
   const r = E.replay(k);
   assert.ok(r.errors[24] < 400, "Katrina 24 h error reasonable");
-  const s = E.skill({ yearFrom: 2015, yearTo: 2024 });
+  assert.ok(r.windErrors[24].observed > 0, "replay reports intensity");
+  const s = E.skill({ basin: "NA", yearFrom: 2015, yearTo: 2024 });
   assert.ok(s.leads[72].skillVsPersistencePct > 0, `model beats persistence at 72 h on held-out storms (${s.leads[72].skillVsPersistencePct}%)`);
+  assert.ok(s.leads[48].windSkillPct > 0, `intensity beats persistence at 48 h on held-out storms (${s.leads[48].windSkillPct}%)`);
+  const basins = new Set(E.storms().map((x) => x.b));
+  if (basins.size > 1) {
+    const h = E.findStorm("Haiyan", 2013);
+    assert.ok(h && h.b === "WP" && Math.max(...h.p.map((q) => q[3])) >= 150, "Haiyan 2013 in the West Pacific");
+    for (const b of ["WP", "EP", "SI", "NI", "SP"]) {
+      const t = E.skill({ basin: b, yearFrom: 2015, yearTo: 2030, leads: [72], step: 24, every: 3 });
+      assert.ok(t.cases > 20 && t.leads[72].skillVsPersistencePct > 0, `${b} 72 h track skill ${t.leads[72].skillVsPersistencePct}%`);
+    }
+  }
   const ens = E.stormEnsemble({ lat: 15, lon: -50 }, 3, { u: 0, v: 0 }, 20);
   assert.equal(ens.tracks.length, 20);
   assert.ok(ens.cities.every((c) => c.pHurricaneForce <= c.pStormForce + 1e-9));

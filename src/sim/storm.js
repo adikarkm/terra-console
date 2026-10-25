@@ -5,6 +5,7 @@ import { Wind } from "./windmodel.js";
 import { isLand, sampleDEM } from "../data/dem.js";
 import { CITIES } from "../data/places.js";
 import { moveEN, haversine, DEG } from "../util/geo.js";
+import FITTED from "./storm_params.json";
 
 export const CAT_WIND = [0, 75, 90, 105, 125, 145]; // kt at genesis per category
 export const SURGE_M = [0.5, 1.5, 2.4, 3.7, 5.5, 7.0]; // typical peak surge by category (NHC SLOSH ranges, midpoints)
@@ -22,14 +23,42 @@ export function catLabel(c) {
   return c >= 1 ? `Cat ${c}` : c === 0 ? "Tropical storm" : "Remnant low";
 }
 
-// Model constants. steer/beta/tau were fitted to 1980-2014 Atlantic best tracks by
-// tools/calibrate_storms.mjs (minimising 48 h track error); see docs/SIMULATION.md.
-export const STORM_PARAMS = { steer: 0.45, betaU: -0.75, betaV: 2.0, tau: 48, warmGain: 0.6, coolLoss: 1.3, coldLoss: 2.6 };
+// Ocean basins as IBTrACS defines them (approximate boundaries).
+export const BASINS = { NA: "North Atlantic", EP: "Eastern Pacific", WP: "Western Pacific", NI: "North Indian", SI: "South Indian", SP: "South Pacific", SA: "South Atlantic" };
+export function basinAt(lat, lon) {
+  if (lat >= 0) {
+    if (lon >= 30 && lon < 100) return "NI";
+    if (lon >= 100) return "WP";
+    if (lon < -100 || (lon < -77 && lat < 8 + (-77 - lon) * 0.4)) return "EP"; // Pacific side of Central America
+    return "NA";
+  }
+  if (lon >= 10 && lon < 135) return "SI";
+  if (lon >= 135 || lon < -70) return "SP";
+  return "SA";
+}
+
+// Model constants. Track: steering factor, beta drift (m/s, westward u, poleward v) and the memory
+// of the initial motion (tau, h). Intensity: over water the wind relaxes toward a latitude-dependent
+// potential intensity (mpiMax kt equatorward of mpiLat0, falling to 25 kt at mpiLat1) with time scale
+// tauI (strengthening) or tauW (weakening); over land it decays as Kaplan & DeMaria (1995).
+// Defaults below; tools/calibrate_storms.mjs fits a set per basin on 1980-2014 and writes them to
+// storm_params.json, which is used when present. See docs/SIMULATION.md.
+export const STORM_PARAMS = { steer: 0.45, betaU: -0.75, betaV: 2.0, tau: 48, mpiMax: 140, mpiLat0: 20, mpiLat1: 40, tauI: 48, tauW: 24, ...(FITTED.global || {}) };
+export const BASIN_PARAMS = FITTED.basins || {};
+export function paramsFor(basin) {
+  return { ...STORM_PARAMS, ...(BASIN_PARAMS[basin] || {}) };
+}
+export function potentialIntensity(lat, P) {
+  const a = Math.abs(lat);
+  if (a <= P.mpiLat0) return P.mpiMax;
+  if (a >= P.mpiLat1) return 25;
+  return P.mpiMax + (25 - P.mpiMax) * ((a - P.mpiLat0) / (P.mpiLat1 - P.mpiLat0));
+}
 
 // genesis {lat,lon}; cat 1-5 (or opts.v0 in kt); push {u,v} m/s initial motion beyond the
 // steering flow, decaying with e-folding time tau hours
 export function simulateStorm(genesis, cat = 3, push = { u: 0, v: 0 }, hours = 168, opts = {}) {
-  const P = { ...STORM_PARAMS, ...(opts.params || {}) };
+  const P = { ...paramsFor(opts.basin || basinAt(genesis.lat, genesis.lon)), ...(opts.params || {}) };
   let p = { ...genesis };
   let V = opts.v0 ?? CAT_WIND[cat];
   let landHours = 0;
@@ -53,9 +82,8 @@ export function simulateStorm(genesis, cat = 3, push = { u: 0, v: 0 }, hours = 1
       if (elev > 1000) V -= 2; // mountains shred the core
     } else {
       landHours = 0;
-      if (a > 6 && a < 26) V = Math.min(160, V + P.warmGain); // warm water
-      else if (a >= 30 && a < 40) V -= P.coolLoss;
-      else if (a >= 40) V -= P.coldLoss;
+      const mpi = potentialIntensity(p.lat, P);
+      V += (mpi - V) / (V < mpi ? P.tauI : P.tauW);
     }
     track.push({ ...p, t, v: V, cat: catFromKt(V), land });
     if (!opts.noStop && (V < 30 || a > 65)) break;
@@ -64,7 +92,7 @@ export function simulateStorm(genesis, cat = 3, push = { u: 0, v: 0 }, hours = 1
 }
 
 // initial push so the model starts moving the way the storm was observed to move
-export function pushFromMotion(at, motion /* {u,v} m/s observed */, params = STORM_PARAMS) {
+export function pushFromMotion(at, motion /* {u,v} m/s observed */, params = paramsFor(basinAt(at.lat, at.lon))) {
   const w = Wind.sample(at.lat, at.lon);
   const ns = at.lat >= 0 ? 1 : -1;
   return { u: motion.u - (params.steer * w.u + params.betaU), v: motion.v - (params.steer * w.v + params.betaV * ns) };

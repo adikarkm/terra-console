@@ -12,6 +12,7 @@ import { circlePoly, haversine, polyCentroid, pointInPoly, unwrapPoly } from "..
 import { activeDeixis } from "../input/deixis.js";
 import { gmsl, seaRelativeToToday, SCENARIOS } from "../time/scenarios.js";
 import { runReplay, modelSkill } from "../modes/history.js";
+import { loadStorms, STORMDATA } from "../sim/stormdata.js";
 import { runSurgeScenario } from "../regional/regional.js";
 import { LIVE, setLive } from "../live/live.js";
 import { runEnsembleView } from "../modes/ensembleview.js";
@@ -186,11 +187,11 @@ export function makeTools(hooks) {
     },
     {
       name: "historical_storm",
-      description: "Replay a real Atlantic hurricane (1975-2024 NOAA best tracks): draws the observed track and the model's forecast from the same start, returns peak intensity, model track errors at 24-120 h, and cities over 100k hit by storm-force winds.",
+      description: "Replay a real tropical cyclone from any ocean basin (NOAA IBTrACS best tracks since 1980: hurricanes, typhoons, cyclones): draws the observed track and the model's forecast from the same start, returns peak intensity, model track and wind errors at 24-120 h, and cities over 100k hit by storm-force winds.",
       inputSchema: { type: "object", properties: { name: { type: "string" }, year: { type: "integer" } }, required: ["name"] },
       async execute({ name, year }) {
-        const r = runReplay(year ? `${name} ${year}` : name);
-        return r ? { ...r, source: "NOAA HURDAT2 best tracks (via dplyr storms)" } : { error: `No Atlantic storm named ${name}${year ? " " + year : ""} in 1975-2024` };
+        const r = await runReplay(year ? `${name} ${year}` : name);
+        return r || { error: `No storm named ${name}${year ? " " + year : ""} in the best-track archive (all basins since 1980)` };
       },
     },
     {
@@ -235,11 +236,12 @@ export function makeTools(hooks) {
     },
     {
       name: "storm_model_skill",
-      description: "How accurate the console's hurricane model is: mean track error at 24/48/72 h on held-out 2015-2024 Atlantic storms vs a persistence baseline.",
-      inputSchema: { type: "object", properties: {} },
-      async execute() {
-        const r = modelSkill();
-        return { heldOut2015to2024: r.test, training1980to2014: r.train, note: "Parameters fitted on 1980-2014 by minimising 48 h error." };
+      description: "How accurate the console's tropical cyclone model is: mean track error (km) and intensity error (kt) at 24/48/72 h on held-out storms since 2015 vs persistence baselines, for one ocean basin (NA, EP, WP, NI, SI, SP) or all.",
+      inputSchema: { type: "object", properties: { basin: { type: "string", enum: ["NA", "EP", "WP", "NI", "SI", "SP"] } } },
+      async execute({ basin } = {}) {
+        await loadStorms();
+        const r = modelSkill(basin || null);
+        return { basin: basin || "all", heldOut: r.test, training1980to2014: r.train, note: "Parameters fitted per basin on 1980-2014 (track by 48 h position error, intensity by 48 h wind error). Positive skill = better than persistence.", source: STORMDATA.source };
       },
     },
     {
