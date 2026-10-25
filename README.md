@@ -2,6 +2,8 @@
 
 **A holographic Earth you can question and change.** Point at any place on the planet with your mouse, your hands or your voice, ask what's there, then ask "what if?" and watch floods, hurricanes, eruptions and fires play out with real physics on real data.
 
+**[▶ Live demo](https://adikarkm.github.io/terra-console/)**: runs in the browser with streamed satellite imagery and offline analysis (AI answers and live feeds need the local server below).
+
 ![Terra Console: the holographic globe in Ask mode](docs/images/hero.jpg)
 
 It has two modes that share one globe:
