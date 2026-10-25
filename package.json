@@ -1,0 +1,39 @@
+{
+  "name": "terra-console",
+  "version": "1.0.0",
+  "description": "Holographic Earth console: gesture-controlled globe with grounded AI analysis (Ask the Earth) and physics-based simulation (What-If Earth).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "fetch-raw": "sh tools/fetch_raw.sh",
+    "prepare-data": "python3 tools/prepare_textures.py && node tools/prepare_data.mjs && node tools/export_geo.mjs && python3 tools/prepare_population.py && node tools/prepare_storms.mjs",
+    "build": "node build.mjs",
+    "build:dev": "node build.mjs --dev",
+    "start": "node server/server.js",
+    "dev": "node build.mjs --dev && node server/server.js",
+    "calibrate": "node tools/calibrate_storms.mjs",
+    "test:unit": "node tests/build_test_src.mjs && node tests/swe.test.mjs && node tests/unit.test.mjs && node tests/openrouter.test.mjs && node tools/test_flood.mjs",
+    "test:e2e": "python3 tests/e2e/run.py",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@mkkellogg/gaussian-splats-3d": "^0.4.7",
+    "3d-tiles-renderer": "^0.5.3",
+    "all-the-cities": "^3.1.0",
+    "assemblyscript": "^0.28.20",
+    "esbuild": "^0.28.2",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "three": "^0.170.0",
+    "three-globe": "^2.45.3",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "license": "MIT"
+}

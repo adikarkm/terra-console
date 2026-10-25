@@ -1,0 +1,567 @@
+<title>Terra Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed globe stage; HUD rails float at the left and right edges; command bar docks at the bottom.
+   Single deliberate dark look: a projected hologram reads only against darkness. */
+:root{
+  --void:#03080f;
+  --panel:rgba(7,20,33,.78);
+  --panel-solid:#071421;
+  --line:rgba(110,205,255,.20);
+  --line-strong:rgba(110,205,255,.45);
+  --holo:#62d6ff;
+  --holo-dim:#2f86ad;
+  --ink:#d9f2ff;
+  --muted:#86a8bc;
+  --flood:#ffb547;
+  --alert:#ff6a5f;
+  --ok:#6bf2b0;
+  --f-display:"Oxanium","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:6px;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--holo);outline-offset:2px}
+
+#stage{position:fixed;inset:0}
+#gl{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#gl.draw{cursor:crosshair}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(10px,-50%);font:500 11px/1.2 var(--f-mono);color:var(--ink);white-space:nowrap;text-shadow:0 0 6px #000,0 0 2px #000;letter-spacing:.02em}
+.lbl small{display:block;color:var(--muted);font-size:10px}
+.lbl.heat{color:var(--flood)}
+.lbl.city{color:var(--muted);font-size:10px}
+
+/* corner brackets: the console frame */
+.frame{position:fixed;width:28px;height:28px;border-color:var(--line-strong);border-style:solid;pointer-events:none}
+.frame.tl{top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;border-width:1px 0 0 1px}
+.frame.tr{top:calc(env(safe-area-inset-top,0px) + 10px);right:10px;border-width:1px 1px 0 0}
+.frame.bl{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:10px;border-width:0 0 1px 1px}
+.frame.br{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);right:10px;border-width:0 1px 1px 0}
+
+/* top bar */
+.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 16px) 22px 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;pointer-events:none}
+.top>*{pointer-events:auto}
+.brand{font:700 18px/1 var(--f-display);letter-spacing:.22em;text-transform:uppercase;color:var(--holo);text-shadow:0 0 14px rgba(98,214,255,.45)}
+.brand span{color:var(--ink);font-weight:400}
+.modes{display:flex;border:1px solid var(--line-strong);border-radius:var(--r);overflow:hidden;background:var(--panel)}
+.modes button{background:none;border:0;padding:8px 16px;font:600 12px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.modes button[aria-pressed="true"]{background:rgba(98,214,255,.16);color:var(--holo);box-shadow:inset 0 -2px 0 var(--holo)}
+.modes button[data-mode="whatif"][aria-pressed="true"]{color:var(--flood);background:rgba(255,181,71,.12);box-shadow:inset 0 -2px 0 var(--flood)}
+.status{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.chipstat{font:500 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:6px 8px;border:1px solid var(--line);border-radius:4px;color:var(--muted);background:var(--panel);display:flex;align-items:center;gap:6px}
+.chipstat i{width:6px;height:6px;border-radius:50%;background:#45606f;display:inline-block}
+.chipstat.on i{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.chipstat.on{color:var(--ink)}
+.chipstat.busy i{background:var(--flood);box-shadow:0 0 8px var(--flood)}
+
+/* side panels */
+.panel{position:fixed;top:calc(env(safe-area-inset-top,0px) + 70px);width:min(330px,calc(100vw - 32px));max-height:calc(100% - 170px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--holo-dim) transparent}
+.panel.left{left:22px}
+.panel.right{right:22px}
+.panel h2{margin:0;font:600 15px/1.2 var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--holo)}
+.whatif .panel h2.wi{color:var(--flood)}
+.panel p{margin:0;line-height:1.5;color:var(--muted)}
+.eyebrow{font:500 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.sect{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:rgba(98,214,255,.06);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font:500 12px/1.2 var(--f-body);color:var(--ink);text-align:left}
+.chip:hover{border-color:var(--line-strong);background:rgba(98,214,255,.12)}
+.chip[aria-pressed="true"]{border-color:var(--holo);color:var(--holo);background:rgba(98,214,255,.14)}
+.whatif .chip[aria-pressed="true"]{border-color:var(--flood);color:var(--flood);background:rgba(255,181,71,.12)}
+.chip.q{font-size:12.5px;width:100%}
+.btn{border:1px solid var(--holo);background:rgba(98,214,255,.15);color:var(--holo);border-radius:4px;padding:9px 12px;font:600 12px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase}
+.btn:hover{background:rgba(98,214,255,.25)}
+.btn.amber{border-color:var(--flood);color:var(--flood);background:rgba(255,181,71,.12)}
+.btn.ghost{border-color:var(--line);color:var(--muted);background:none}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kv div{border:1px solid var(--line);border-radius:4px;padding:8px}
+.kv b{display:block;font:600 16px/1.2 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.kv span{font:500 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-variant-numeric:tabular-nums}
+.list li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.list li span:last-child{color:var(--muted);font-family:var(--f-mono);font-size:11.5px;white-space:nowrap}
+.list li.sev span:first-child{color:var(--alert)}
+.empty{color:var(--muted);font-size:12.5px;font-style:italic}
+.note{font-size:11.5px;color:var(--muted);line-height:1.45}
+
+.sea-read{display:flex;align-items:baseline;gap:8px}
+.sea-read b{font:700 38px/1 var(--f-display);color:var(--flood);font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(255,181,71,.35)}
+.sea-read span{font:500 11px/1 var(--f-mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+input[type=range]{width:100%;accent-color:var(--flood);height:28px}
+
+/* answer panel */
+#answer .title{font:600 19px/1.25 var(--f-display);color:var(--ink);text-wrap:balance;margin:0}
+#answer .body p{color:var(--ink);opacity:.92;margin:0 0 10px;line-height:1.55}
+#answer .src{font:500 10px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.thinking{display:flex;gap:10px;align-items:center;color:var(--muted)}
+.thinking i{width:14px;height:14px;border:2px solid var(--holo-dim);border-top-color:var(--holo);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.handoff{border:1px solid var(--flood);border-radius:var(--r);padding:12px;background:rgba(255,181,71,.07);display:flex;flex-direction:column;gap:8px}
+.handoff p{color:var(--ink)}
+
+/* command bar */
+.cmd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:min(720px,calc(100vw - 32px));display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r);padding:6px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.cmd input{flex:1;min-width:0;background:none;border:0;outline:none;padding:9px 8px;font-size:14px}
+.cmd input::placeholder{color:var(--muted)}
+.ibtn{width:38px;height:38px;flex:none;border:1px solid var(--line);background:rgba(98,214,255,.05);border-radius:4px;display:grid;place-items:center;color:var(--muted)}
+.ibtn svg{width:18px;height:18px}
+.ibtn.on{color:var(--void);background:var(--holo);border-color:var(--holo)}
+.ibtn.send{color:var(--holo);border-color:var(--holo)}
+.ibtn.wake{box-shadow:0 0 0 3px var(--flood),0 0 18px var(--flood)}
+
+.readout{position:fixed;left:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);font:500 11px/1.5 var(--f-mono);color:var(--muted);letter-spacing:.04em;pointer-events:none;font-variant-numeric:tabular-nums}
+.readout b{color:var(--ink);font-weight:500}
+
+/* webcam preview */
+#cam{position:fixed;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:200px;border:1px solid var(--line-strong);border-radius:var(--r);overflow:hidden;background:#000}
+#cam video,#cam canvas{display:block;width:100%;transform:scaleX(-1)}
+#cam canvas{position:absolute;inset:0;height:100%}
+#cam .pose{position:absolute;left:6px;bottom:6px;font:600 10px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--holo);background:rgba(0,0,0,.6);padding:4px 6px;border-radius:3px}
+#cam video{opacity:.55}
+#handCursor{position:fixed;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border:2px solid var(--holo);border-radius:50%;pointer-events:none;box-shadow:0 0 14px rgba(98,214,255,.6);transition:transform .08s,border-color .1s,background .1s;z-index:20}
+#handCursor.pinch{transform:scale(.6);background:rgba(98,214,255,.45)}
+#handCursor.fist{border-color:var(--flood);box-shadow:0 0 14px rgba(255,181,71,.6)}
+#handCursor::after{content:attr(data-pose);position:absolute;left:40px;top:8px;font:600 10px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--holo);white-space:nowrap}
+
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%);background:var(--panel-solid);border:1px solid var(--line-strong);color:var(--ink);padding:9px 14px;border-radius:var(--r);font-size:13px;max-width:min(520px,calc(100vw - 32px));z-index:30;text-align:center}
+
+/* help overlay */
+#help{position:fixed;inset:0;background:rgba(2,6,12,.82);display:grid;place-items:center;z-index:40;padding:16px}
+#help .card{background:var(--panel-solid);border:1px solid var(--line-strong);border-radius:var(--r);padding:22px;width:min(640px,100%);max-height:calc(100% - 32px);overflow:auto;display:flex;flex-direction:column;gap:16px}
+#help h3{margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--holo)}
+#help table{width:100%;border-collapse:collapse;font-size:13px}
+#help td{padding:7px 0;border-bottom:1px dashed var(--line);vertical-align:top}
+#help td:first-child{color:var(--ink);font-weight:500;width:42%;padding-right:12px}
+#help td:last-child{color:var(--muted)}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+
+
+#rgPanel:not([hidden]){display:flex;flex-direction:column;gap:8px}
+/* provenance */
+button.num{all:unset;cursor:pointer;border-bottom:1px dotted var(--holo-dim)}
+button.num.ok{border-bottom:1px solid var(--ok)}
+button.num.bad{border-bottom:1px dashed var(--alert);color:var(--alert)}
+button.num:focus-visible{outline:2px solid var(--holo)}
+.prov{position:fixed;z-index:50;max-width:min(420px,calc(100vw - 16px));background:var(--panel-solid);border:1px solid var(--line-strong);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.prov b{font:600 11px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--holo)}
+.prov code{font:11px/1.4 var(--f-mono);color:var(--ink);word-break:break-word}
+/* spherical display output: only the image */
+body.sphere-out > *:not(#stage):not(#sphereHint),body.sphere-out #labels{display:none!important}
+#sphereHint{position:fixed;left:12px;bottom:12px;font:500 11px var(--f-mono);color:#556;z-index:60}
+body:not(.sphere-out) #sphereHint{display:none}
+/* place names */
+#placeLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pl{position:absolute;left:0;top:0;white-space:nowrap;font:500 11px/1 var(--f-body);color:#eef7ff;text-shadow:0 0 3px #000,0 0 2px #000,0 1px 2px #000;padding-left:9px;margin-top:-6px;will-change:transform}
+.pl::before{content:"";position:absolute;left:0;top:3px;width:5px;height:5px;border-radius:50%;background:#eef7ff;box-shadow:0 0 3px #000}
+.pl.big{font-size:12.5px;font-weight:600}
+.pl.country{font:600 12px/1 var(--f-display);letter-spacing:.22em;text-transform:uppercase;color:rgba(217,242,255,.85);padding-left:0;transform-origin:center;margin-left:0}
+.pl.country::before{display:none}
+#attrib{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 2px);font:400 9.5px/1.3 var(--f-body);color:rgba(217,242,255,.6);max-width:60vw;text-align:right;pointer-events:none;z-index:2}
+/* skill table */
+table.skill{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+table.skill th,table.skill td{text-align:left;padding:5px 4px;border-bottom:1px dashed var(--line)}
+table.skill th{font:500 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+/* agent steps */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.steps:empty{display:none}
+.steps li{display:flex;flex-direction:column;gap:2px;padding-left:16px;position:relative;color:var(--muted)}
+.steps li::before{content:"";position:absolute;left:2px;top:5px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.steps li.run::before{background:none;border:2px solid var(--holo);border-top-color:transparent;animation:spin 1s linear infinite;width:5px;height:5px}
+.steps li.err::before{background:var(--alert)}
+.steps li small{font:500 10.5px/1.3 var(--f-mono);color:var(--holo-dim)}
+#answer .body ul{margin:0 0 10px;padding-left:18px;line-height:1.5}
+#answer .body b{color:var(--holo)}
+#answer .srcline{font:500 11px/1.4 var(--f-mono);color:var(--muted)!important;opacity:1}
+
+/* right dock */
+.dock{position:fixed;right:22px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:5}
+.dock .ibtn{background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.dock .ibtn[aria-pressed="true"],.dock .ibtn.on{color:var(--void);background:var(--holo);border-color:var(--holo)}
+.answer-open .dock{right:368px}
+.answer-open .pop{right:418px}
+.pop{position:fixed;right:72px;top:50%;transform:translateY(-50%);max-height:calc(100% - 140px);overflow:auto;width:min(300px,calc(100vw - 100px));background:var(--panel-solid);border:1px solid var(--line-strong);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;z-index:6}
+.pop h3{margin:0;font:600 12px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--holo)}
+.pop label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.pop input[type=text],.pop input[type=password],.field{background:rgba(98,214,255,.06);border:1px solid var(--line);border-radius:4px;padding:7px 8px;min-width:0;width:100%}
+.switch{appearance:none;width:34px;height:20px;border-radius:10px;background:#21384a;position:relative;flex:none;cursor:pointer}
+.switch::after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:left .15s}
+.switch:checked{background:var(--holo-dim)}
+.switch:checked::after{left:17px;background:var(--ink)}
+.peers{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.peers span{display:flex;align-items:center;gap:6px}
+.peers i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* timeline */
+#timePanel{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 74px);width:min(720px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:4}
+.yr{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.yr b{font:700 30px/1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.yr span{font:500 12px/1 var(--f-mono);color:var(--flood)}
+#yearSlider{accent-color:var(--holo)}
+.ticks{display:flex;justify-content:space-between;font:500 10px/1 var(--f-mono);color:var(--muted);margin-top:-4px}
+.cmp{display:grid;grid-template-columns:2fr 1fr 1fr auto auto;gap:6px;align-items:center}
+.cmp select,.cmp input{background:rgba(98,214,255,.06);border:1px solid var(--line);border-radius:4px;padding:6px;min-width:0;color:var(--ink)}
+#splitHandle{position:fixed;top:0;bottom:0;width:30px;margin-left:-15px;cursor:ew-resize;z-index:3;display:flex;justify-content:center}
+#splitHandle::before{content:"";width:2px;height:100%;background:var(--flood);box-shadow:0 0 10px var(--flood)}
+#splitHandle span{position:absolute;top:50%;width:28px;height:28px;border-radius:50%;background:var(--flood);color:var(--void);display:grid;place-items:center;font:700 12px var(--f-mono)}
+
+/* ground view */
+#ground{position:fixed;inset:0;z-index:35;background:#0a1520}
+#groundCanvas{width:100%;height:100%;display:block}
+.gbar{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 14px);display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.gcard{background:var(--panel);border:1px solid var(--line-strong);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px;max-width:420px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.gcard b{font:600 14px/1.2 var(--f-display);letter-spacing:.08em;color:var(--holo)}
+#gCond{color:var(--flood);font-size:13px}
+.gcard .row input{flex:1}
+
+/* trainer */
+#trainer{position:fixed;inset:0;background:rgba(2,6,12,.8);display:grid;place-items:center;z-index:40;padding:16px}
+#trainer .card{background:var(--panel-solid);border:1px solid var(--line-strong);border-radius:var(--r);padding:20px;width:min(560px,100%);max-height:calc(100% - 32px);overflow:auto;display:flex;flex-direction:column;gap:12px}
+#trainer h3{margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--holo)}
+.grow{border:1px solid var(--line);border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.grow select{background:rgba(98,214,255,.06);border:1px solid var(--line);border-radius:4px;padding:6px;color:var(--ink)}
+.gname{display:flex;justify-content:space-between}
+.gname span{font:500 11px var(--f-mono);color:var(--muted)}
+#gLive{font:600 12px/1 var(--f-mono);color:var(--flood)}
+textarea.field{min-height:80px;font:11px var(--f-mono)}
+
+@media (max-width:820px){
+  .dock{top:auto;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:none;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-end}
+  .panel.left{bottom:calc(env(safe-area-inset-bottom,0px) + 118px)!important;max-height:34%!important}
+  #timePanel{bottom:calc(env(safe-area-inset-bottom,0px) + 118px);max-height:46%;overflow:auto}
+  body.time-open .panel.left{display:none}
+  body.answer-open .panel.left{max-height:24%!important}
+  .pop{right:16px;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 118px);transform:none}
+  .answer-open .dock{right:16px}
+  .cmp{grid-template-columns:1fr 1fr}
+
+  .status{display:none}
+  .top{padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;gap:12px}
+  .brand{font-size:15px}
+  .panel.left{left:16px;right:16px;width:auto;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);max-height:38%}
+  .panel.right{left:16px;right:16px;width:auto;top:calc(env(safe-area-inset-top,0px) + 56px);max-height:40%}
+  .readout{display:none}
+  #cam{width:120px;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 56px);right:16px}
+  .help-grid{grid-template-columns:1fr}
+  .frame{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="stage"><canvas id="gl" aria-label="Interactive 3D globe"></canvas><div id="placeLabels"></div><div id="labels"></div></div>
+<div id="attrib" hidden></div>
+<div class="frame tl"></div><div class="frame tr"></div><div class="frame bl"></div><div class="frame br"></div>
+
+<header class="top">
+  <div class="brand">Terra <span>Console</span></div>
+  <div class="modes" role="group" aria-label="Mode">
+    <button id="mAsk" data-mode="ask" aria-pressed="true">Ask</button>
+    <button id="mWi" data-mode="whatif" aria-pressed="false">What-If</button>
+  </div>
+  <div class="status">
+    <div class="chipstat" id="stAI"><i></i><span>AI · checking</span></div>
+    <div class="chipstat" id="stHands"><i></i><span>Hands · off</span></div>
+    <div class="chipstat" id="stVoice"><i></i><span>Voice · off</span></div>
+    <div class="chipstat" id="stRoom"><i></i><span>Solo</span></div>
+  </div>
+</header>
+
+<!-- ASK MODE PANEL -->
+<aside class="panel left" id="askPanel" aria-label="Ask the Earth">
+  <div>
+    <h2>Ask the Earth</h2>
+    <p style="margin-top:8px">Draw a loop around any region, then ask a question out loud or type it below.</p>
+  </div>
+  <div class="row" role="group" aria-label="Tool">
+    <button class="chip" id="tAskRotate" aria-pressed="false">Rotate</button>
+    <button class="chip" id="tAskLasso" aria-pressed="true">Draw region</button>
+  </div>
+  <div class="sect" id="regionBox">
+    <div class="eyebrow">Selected region</div>
+    <div class="empty" id="regionEmpty">No region yet. With no region, questions use the point at the center of the view.</div>
+    <div id="regionInfo" hidden>
+      <div class="kv">
+        <div><b id="rgArea">–</b><span>Area</span></div>
+        <div><b id="rgLand">–</b><span>Land</span></div>
+        <div><b id="rgElev">–</b><span>Mean elev.</span></div>
+        <div><b id="rgLow">–</b><span>Land under 5 m</span></div>
+      </div>
+      <ul class="list" id="rgCities" style="margin-top:10px"></ul>
+      <button class="btn ghost" id="clearRegion" style="margin-top:10px;width:100%">Clear region</button>
+    </div>
+  </div>
+  <div class="sect">
+    <div class="eyebrow">Try asking</div>
+    <div class="row" id="suggest"></div>
+  </div>
+</aside>
+
+<!-- WHAT-IF PANEL -->
+<aside class="panel left" id="wiPanel" hidden aria-label="What-If Earth">
+  <div>
+    <h2 class="wi" style="color:var(--flood)">What-If Earth</h2>
+    <p style="margin-top:8px">Change the planet and watch the consequences spread.</p>
+  </div>
+  <div class="sect" style="border-top:0;padding-top:0">
+    <div class="eyebrow">Sea level rise</div>
+    <div class="sea-read"><b id="seaVal">+0.0</b><span>metres</span></div>
+    <input type="range" id="seaSlider" min="0" max="1000" value="0" step="1" aria-label="Sea level rise">
+    <div class="row" id="seaPresets">
+      <button class="chip" data-sea="1">+1 m · 2100 high</button>
+      <button class="chip" data-sea="2">+2 m</button>
+      <button class="chip" data-sea="7">+7 m · Greenland</button>
+      <button class="chip" data-sea="66">+66 m · all ice</button>
+    </div>
+    <div class="kv">
+      <div><b id="seaArea">0</b><span>Land flooded</span></div>
+      <div><b id="seaPct">0%</b><span>Of all land</span></div>
+      <div style="grid-column:1/-1"><b id="seaPeople">0</b><span>People living in flooded cells · upper bound at 20 km</span></div>
+    </div>
+    <ul class="list" id="seaCountries"></ul>
+    <div class="eyebrow" style="margin:6px 0 0">Major cities underwater</div>
+    <ul class="list" id="seaCities"><li class="empty">None at this level.</li></ul>
+  </div>
+  <div class="sect">
+    <div class="eyebrow">Tool</div>
+    <div class="row" role="group" aria-label="Tool">
+      <button class="chip" id="tWiRotate" aria-pressed="true">Rotate</button>
+      <button class="chip" id="tWiStorm" aria-pressed="false">Hurricane</button>
+      <button class="chip" id="tWiEvent" aria-pressed="false">Event</button>
+    </div>
+    <div id="stormOpts" hidden>
+      <p class="note" style="margin-bottom:8px">Drag across the globe to draw a storm track, or tap once for a typical track.</p>
+      <div class="row" id="catRow"></div>
+      <button class="chip" id="ensRun" style="margin-top:6px">Run 50-track ensemble</button>
+      <div id="ensOut"></div>
+    </div>
+    <div id="eventOpts" hidden>
+      <p class="note" style="margin-bottom:8px">Tap the globe to place the event.</p>
+      <div class="row" id="evRow">
+        <button class="chip" data-ev="volcano" aria-pressed="true">Volcano</button>
+        <button class="chip" data-ev="wildfire" aria-pressed="false">Wildfire</button>
+        <button class="chip" data-ev="meteor" aria-pressed="false">Meteor</button>
+      </div>
+      <div class="row" id="metRow" hidden style="margin-top:6px">
+        <button class="chip" data-met="0" aria-pressed="false">50 m rock</button>
+        <button class="chip" data-met="1" aria-pressed="true">300 m</button>
+        <button class="chip" data-met="2" aria-pressed="false">1 km</button>
+      </div>
+    </div>
+  </div>
+  <div class="sect">
+    <div class="eyebrow">Flood dynamics · high resolution</div>
+    <p class="note">Runs a shallow-water model on detailed terrain for your region (or the view centre): storm surge pushes inland, spreads and drains.</p>
+    <button class="btn amber" id="rgBuild">Simulate surge here</button>
+    <div id="rgPanel" hidden class="rgp" style="flex-direction:column;gap:8px">
+      <div class="note" id="rgSource"></div>
+      <label class="note" style="display:flex;justify-content:space-between;gap:8px">Surge peak <span id="rgSurgeVal">3.0 m</span></label>
+      <input type="range" id="rgSurge" min="0" max="8" step="0.1" value="3" aria-label="Surge height">
+      <label class="note" style="display:flex;justify-content:space-between;gap:8px">Tide amplitude <span id="rgTideVal">0.5 m</span></label>
+      <input type="range" id="rgTide" min="0" max="3" step="0.1" value="0.5" aria-label="Tide amplitude">
+      <div class="row">
+        <button class="btn" id="rgPlay">Play</button><button class="chip" id="rgReset">Reset</button>
+        <select class="field" id="rgSpeed" style="width:auto" aria-label="Speed"><option value="1">1 h/s</option><option value="3" selected>3 h/s</option><option value="8">8 h/s</option></select>
+        <select class="field" id="rgMode" style="width:auto" aria-label="Model"><option value="dynamic">Dynamic</option><option value="equilibrium">Equilibrium</option></select>
+        <button class="chip" id="rgClose">Close</button>
+      </div>
+      <div class="note" id="rgTime"></div>
+      <div class="kv">
+        <div><b id="rgArea">0</b><span>Flooded &gt; 15 cm</span></div>
+        <div><b id="rgDepth">0 m</b><span>Max depth</span></div>
+        <div style="grid-column:1/-1"><b id="rgPeople">0</b><span>People in flooded cells</span></div>
+      </div>
+      <div class="note" id="rgStatus"></div>
+    </div>
+  </div>
+  <div class="sect">
+    <div class="eyebrow">Real hurricanes · 1975–2024</div>
+    <div class="row"><input class="field" id="histName" list="stormList" placeholder="e.g. Katrina 2005" style="flex:1" aria-label="Historical storm"><button class="btn" id="histGo">Replay</button></div>
+    <datalist id="stormList"></datalist>
+    <div class="row"><button class="chip" id="histSkill">Model skill vs history</button><button class="chip" id="histClear">Clear</button></div>
+    <div id="histOut"></div>
+  </div>
+  <div class="sect">
+    <div class="eyebrow">Impact</div>
+    <ul class="list" id="impactList"><li class="empty">Draw a storm or place an event to see who is hit.</li></ul>
+    <button class="btn ghost" id="clearSim">Clear simulation</button>
+    <p class="note">Bathtub flood model on a ~20 km elevation grid, connected to the ocean. Cities: GeoNames city populations; elevations are surveyed centre values or a ~6 m estimate where unknown (marked ~). Illustrative, not a hazard map.</p>
+  </div>
+</aside>
+
+<!-- ANSWER PANEL -->
+<aside class="panel right" id="answer" hidden aria-live="polite">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div class="src" id="ansSrc">Analysis</div>
+    <div class="row">
+      <button class="chip" id="ansSpeak" title="Read the answer aloud">Read aloud</button>
+      <button class="chip" id="ansClose" aria-label="Close answer">Close</button>
+    </div>
+  </div>
+  <div id="ansContent"></div>
+</aside>
+
+<footer class="cmd">
+  <button class="ibtn" id="micBtn" title="Voice commands" aria-label="Voice commands">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+  </button>
+  <input id="cmdInput" type="text" autocomplete="off" placeholder="Ask about the region, or say “what if the sea rose 2 metres here”">
+  <button class="ibtn send" id="sendBtn" aria-label="Send">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+  </button>
+  <button class="ibtn" id="camBtn" title="Hand tracking" aria-label="Hand tracking">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-7.5a1.5 1.5 0 0 1 3 0V12m0-6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 8-7 8-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.5-1.6L8 14"/></svg>
+  </button>
+
+</footer>
+
+
+<nav class="dock" aria-label="Tools">
+  <button class="ibtn" id="layersBtn" title="Layers" aria-label="Layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg></button>
+  <button class="ibtn" id="timeBtn" title="Time travel" aria-label="Time travel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg></button>
+  <button class="ibtn" id="groundBtn" title="Ground view" aria-label="Ground view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 20V10l4-3 4 3v10M13 20v-6l4-3 3 2v7"/></svg></button>
+  <button class="ibtn" id="roomBtn" title="Collaborate" aria-label="Collaborate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c.5-3 3-5 6-5s5.5 2 6 5M15 14.5c2.5 0 5 1.5 5.5 4.5"/></svg></button>
+  <button class="ibtn" id="trainBtn" title="Train gestures" aria-label="Train gestures"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4m0-5a1.5 1.5 0 0 1 3 0v5m0-4a1.5 1.5 0 0 1 3 0v6c0 4-2.5 7-6.5 7-2.5 0-4-1.2-5.3-3.4L2.8 14a1.5 1.5 0 0 1 2.5-1.5L7 14"/><path d="M19 3v4M17 5h4"/></svg></button>
+  <button class="ibtn" id="soundBtn" title="Spatial sound" aria-label="Spatial sound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button>
+  <button class="ibtn" id="xrBtn" title="Enter VR / AR" aria-label="Enter VR or AR"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h13A2.5 2.5 0 0 1 21 8.5v6a2.5 2.5 0 0 1-2.5 2.5h-3l-2-2.5h-3L8.5 17h-3A2.5 2.5 0 0 1 3 14.5Z"/><circle cx="8" cy="11.5" r="1.5"/><circle cx="16" cy="11.5" r="1.5"/></svg></button>
+  <button class="ibtn" id="helpBtn" title="Controls" aria-label="Controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.2v.1"/></svg></button>
+</nav>
+
+<div class="pop" id="layersPop" hidden>
+  <h3>Layers</h3>
+  <label>Map <select class="field" id="basemap" style="width:auto"><option value="satellite">Satellite</option><option value="sentinel">Sentinel-2</option><option value="streets">Streets</option><option value="topo">Topographic</option><option value="night">Night lights</option></select></label>
+  <label>Terrain height <select class="field" id="exag" style="width:auto"><option value="1">1× (true)</option><option value="2">2×</option><option value="3">3×</option></select></label>
+  <label>Place names <input type="checkbox" class="switch" id="lyPlaces" checked></label>
+  <p class="note" id="streamInfo"></p>
+  <label>Hologram view <input type="checkbox" class="switch" id="lyHolo" checked></label>
+  <label>Wind field <input type="checkbox" class="switch" id="lyWind"></label>
+  <label>Country borders <input type="checkbox" class="switch" id="lyBorders"></label>
+  <label>Ash and smoke plumes <input type="checkbox" class="switch" id="lyPlumes" checked></label>
+  <label>Population density <input type="checkbox" class="switch" id="lyDensity"></label>
+  <label>Narrate agent steps aloud <input type="checkbox" class="switch" id="lyNarrate"></label>
+  <label>Wake word “Terra” <input type="checkbox" class="switch" id="lyWake"></label>
+  <h3 style="margin-top:6px">Displays</h3>
+  <label>Spherical display <select class="field" id="sphereOut" style="width:auto"><option value="off">Off</option><option value="fisheye">Fisheye (projector sphere)</option><option value="equirect">Equirectangular (Science On a Sphere)</option></select></label>
+  <button class="chip" id="lgBtn">Looking Glass</button>
+  <h3 style="margin-top:6px">Live hazards</h3>
+  <label>Active hurricanes · NHC <input type="checkbox" class="switch" id="lv_storms"></label>
+  <label>Active fires · NASA FIRMS <input type="checkbox" class="switch" id="lv_fires"></label>
+  <label>Earthquakes 24 h · USGS <input type="checkbox" class="switch" id="lv_quakes"></label>
+  <p class="note" id="liveStatus"></p>
+  <p class="note" id="windSrc">Winds: climatology</p>
+  <p class="note" id="floodEng">Flood engine: loading</p>
+</div>
+
+<div class="pop" id="roomPop" hidden>
+  <h3>Collaborate</h3>
+  <p class="note" id="roomInfo">Share this page with teammates: everyone who opens it joins the same room, sees each other's cursors and hands, regions, answers and simulations.</p>
+  <label style="flex-direction:column;align-items:stretch;gap:6px">Your name <input type="text" id="roomNick" placeholder="Name shown to others" maxlength="24"></label>
+  <div class="row" id="roomLocal"><input type="text" class="field" id="roomName" placeholder="Room name (local server)" style="flex:1"><button class="btn" id="roomJoin">Join</button></div>
+  <div class="peers" id="peerList"><span class="empty">Nobody else here yet.</span></div>
+</div>
+
+<section id="timePanel" hidden aria-label="Time travel">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div class="yr"><b id="yearVal">2026</b><span id="yearSea">+0.00 m vs today</span></div>
+    <button class="chip" id="timeClose">Close</button>
+  </div>
+  <input type="range" id="yearSlider" min="1900" max="2150" step="1" value="2026" aria-label="Year">
+  <div class="ticks"><span>1900</span><span>1950</span><span>2000</span><span>2050</span><span>2100</span><span>2150</span></div>
+  <div class="row" id="scRow" role="group" aria-label="Scenario"></div>
+  <p class="note" id="yearNote"></p>
+  <div class="sect">
+    <div class="eyebrow">Satellite compare · NASA GIBS</div>
+    <div class="cmp">
+      <select id="gibsLayer" aria-label="Imagery layer"></select>
+      <input type="date" id="dateA" value="2000-07-15" min="2000-02-24" aria-label="Left date">
+      <input type="date" id="dateB" value="2026-07-15" min="2000-02-24" aria-label="Right date">
+      <button class="btn" id="gibsLoad">Compare</button>
+      <button class="chip" id="gibsOff">Off</button>
+    </div>
+    <p class="note" id="gibsStatus"></p>
+  </div>
+</section>
+<div id="splitHandle" hidden data-hand><span>⇔</span></div>
+
+<section id="ground" hidden aria-label="Ground view">
+  <canvas id="groundCanvas"></canvas>
+  <div class="gbar">
+    <div class="gcard">
+      <div class="row" style="justify-content:space-between;align-items:center"><b>Ground view</b><button class="chip" id="groundClose">Back to globe</button></div>
+      <div class="note" id="gWhere"></div>
+      <div id="gCond"></div>
+      <label class="note" style="display:flex;gap:8px;align-items:center">Ground elevation (m) <input type="number" class="field" id="gElev" style="width:90px"></label>
+      <div class="note" id="gElevSrc"></div>
+    </div>
+    <div class="gcard">
+      <b>Scene</b>
+      <label class="note">Load a real Gaussian Splat capture (.ply, .splat, .ksplat, .spz) <input type="file" id="splatFile" accept=".ply,.splat,.ksplat,.spz"></label>
+      <div class="row"><input type="password" class="field" id="gKey" placeholder="Google Maps API key (Map Tiles API)" autocomplete="off"><button class="btn" id="tilesGo">Load 3D Tiles</button></div>
+      <div class="note" id="gStatus">Pick a source. Water, fire and storm effects use this spot's simulated conditions.</div>
+    </div>
+  </div>
+</section>
+
+<div id="trainer" hidden>
+  <div class="card" role="dialog" aria-label="Gesture trainer">
+    <div class="row" style="justify-content:space-between;align-items:center"><h3>Train your gestures</h3><button class="chip" id="trainerClose">Close</button></div>
+    <p class="note">Each gesture gets a few seconds of samples from your webcam. A small neural network trains on your hand landmarks right here, then runs live alongside the built-in gestures. Record Neutral too, so ordinary hand poses don't fire actions.</p>
+    <div id="gLive"></div>
+    <div id="gList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="row"><input type="text" class="field" id="gName" placeholder="New gesture, e.g. Scoop" style="flex:1"><button class="btn" id="gAdd">Add</button></div>
+    <div class="row"><button class="btn" id="gTrain">Train</button><button class="chip" id="gExport">Copy model</button><button class="chip" id="gImport">Import</button></div>
+    <textarea class="field" id="gJson" hidden></textarea>
+    <p class="note" id="gStatus2"></p>
+  </div>
+</div>
+
+<div class="readout" id="readout"><b id="roPos">—</b><br><span id="roClock">UTC</span></div>
+
+<div id="cam" hidden><video id="camVideo" playsinline muted></video><canvas id="camCanvas" width="320" height="240"></canvas><div class="pose" id="camPose">Searching</div></div>
+<div id="handCursor" hidden></div>
+<div id="toast" hidden></div>
+<div id="sphereHint">Esc to leave spherical output</div>
+
+<div id="help" hidden>
+  <div class="card" role="dialog" aria-label="Controls">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3>Controls</h3><button class="chip" id="helpClose">Close</button>
+    </div>
+    <div class="help-grid">
+      <div>
+        <h3 style="margin-bottom:8px">Hands (webcam)</h3>
+        <table>
+          <tr><td>Open palm, move</td><td>Spin the globe</td></tr>
+          <tr><td>Pinch and drag</td><td>Draw a region (Ask) · draw a storm track or grab the globe (What-If)</td></tr>
+          <tr><td>Pinch on a button</td><td>Press it</td></tr>
+          <tr><td>Two hands apart / together</td><td>Zoom in / out</td></tr>
+          <tr><td>Fist, move up / down</td><td>Raise / lower the sea (What-If)</td></tr>
+          <tr><td>Peace sign, hold</td><td>Switch mode</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3 style="margin-bottom:8px">Mouse, touch, voice</h3>
+        <table>
+          <tr><td>Drag</td><td>Spin, or draw with the active tool</td></tr>
+          <tr><td>Scroll / pinch</td><td>Zoom</td></tr>
+          <tr><td>Shift + drag</td><td>Draw a region from any tool</td></tr>
+          <tr><td>“Go to Tokyo”</td><td>Fly to a city</td></tr>
+          <tr><td>“What if the sea rose 3 metres”</td><td>Jump into the simulation</td></tr>
+          <tr><td>“Ask mode” / “What-if mode”</td><td>Switch mode</td></tr>
+          <tr><td>“Show me this region in 2000 vs 2026”</td><td>Satellite swipe compare</td></tr>
+          <tr><td>Any question</td><td>The agent plans, calls data tools and draws layers</td></tr>
+        </table>
+      </div>
+    </div>
+    <p class="note">Hand tracking and voice need camera and microphone access, which the local version provides (run it on your computer; see README). Live winds, earthquakes, NASA imagery, World Bank data, named rooms and Google 3D Tiles also come through the local server. In a headset, use the VR / AR button: grab the globe to spin it, pinch with both hands to scale, point and pinch to draw.</p>
+  </div>
+</div>
+
+<script>__APP__</script>
