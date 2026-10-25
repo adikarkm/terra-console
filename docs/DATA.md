@@ -17,7 +17,7 @@
 | Country codes | ISO / M49 mapping | github.com/datasets/country-codes | ODC-PDDL |
 | Night lights | population weighting | NASA Black Marble via `three-globe` | public domain |
 | Country boundaries 1:50m | country raster | Natural Earth via `world-atlas` | public domain |
-| Atlantic hurricane tracks 1975–2024 | replay, calibration, validation | NOAA NHC HURDAT2, as packaged in dplyr's `storms` | public domain |
+| Tropical cyclone best tracks, every basin, 1980–2026 (4,083 storms) | replay, calibration, validation | NOAA NCEI IBTrACS v04r01 (`ibtracs.since1980.list.v04r01.csv`), converted by `tools/prepare_ibtracs.mjs` | public domain; cite Knapp et al. (2010), BAMS 91, 363–376 |
 
 The browser loads lossless WebP copies of `dem.png` and `pop.png` (`assets/*.webp`, identical pixels, ~40% smaller) and a lossy WebP of the world image; regenerate them with `python3 tools/make_webp.py` after changing the PNGs.
 

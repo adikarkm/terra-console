@@ -17,9 +17,9 @@ The two modes hand off to each other: ask *"what if the sea rose 2 metres here?"
 
 ## Engineering highlights
 
-- **Planet-scale rendering:** satellite imagery and 3D terrain stream as tiles from the whole globe down to street level, on the true WGS84 ellipsoid (switching from a sphere fixed a misalignment of up to 21 km). Failed tiles retry and fall back to a built-in image, so the map never shows holes.
+- **Planet-scale rendering:** satellite imagery and 3D terrain stream as tiles from the whole globe down to street level, on the true WGS84 ellipsoid (switching from a sphere fixed a misalignment of up to 21 km). Failed tiles retry and fall back to a built-in image, so the map never shows holes. Real OpenStreetMap buildings rise in 3D at street level, and a code-split build gets the globe on screen in under 3 s on a 5 Mbit/s connection (down from 8 s).
 - **Simulation on the GPU and in WebAssembly:** a Priority-Flood algorithm written in AssemblyScript runs in a Web Worker (~200 ms for the whole planet); a shallow-water storm-surge model runs as WebGPU compute shaders, with a CPU fallback that is tested to agree with it; 1 million wind particles animate on the GPU.
-- **Validated against history:** the hurricane model is calibrated on 50 years of real Atlantic tracks (NOAA HURDAT2) and beats a persistence baseline by 6–19% on held-out seasons. 50-member ensembles give strike probabilities by city.
+- **Validated against history:** the tropical cyclone model is fitted per ocean basin on 4,083 real storms from every ocean (NOAA IBTrACS, 1980–2026) and, on seasons it never saw, beats persistence in every basin for both track (by 2–19%) and intensity (by 8–29%). 50-member ensembles give strike probabilities by city.
 - **Grounded AI agent:** a multi-step tool-calling loop (17 tools) that works with Claude or free models through OpenRouter, using one adapter that translates between the two API formats. Answers show where each number came from.
 - **New ways to interact:** webcam hand tracking, a gesture classifier you train in the browser (a small neural network, about 1 s to train), voice commands with a wake word, "point-and-say" ("put a volcano *here*"), WebXR headsets, Looking Glass and physical sphere displays, multi-user rooms and procedural spatial audio.
 - **Tested:** physics and unit tests, plus a 21-check end-to-end suite in headless Chromium (WebGL and WebGPU) against a mock backend that simulates flaky tile servers and a scripted AI.
@@ -32,13 +32,13 @@ The two modes hand off to each other: ask *"what if the sea rose 2 metres here?"
 
 | Area | Feature |
 |---|---|
-| Globe | **Streams satellite imagery and 3D terrain as tiles**, from the whole planet down to street level (~0.5 m imagery in cities, ~30 m terrain), on the true WGS84 Earth shape; tilt toward the horizon; place names from countries down to neighbourhoods (49,000 places); five basemaps (satellite, Sentinel-2, streets, topographic, night lights); hologram from afar fading to real imagery up close; floods computed against the detailed terrain |
+| Globe | **Streams satellite imagery and 3D terrain as tiles**, from the whole planet down to street level (~0.5 m imagery in cities, ~30 m terrain), on the true WGS84 Earth shape; tilt toward the horizon; place names from countries down to neighbourhoods (49,000 places); five basemaps (satellite, Sentinel-2, streets, topographic, night lights); hologram from afar fading to real imagery up close; floods computed against the detailed terrain; **3D OpenStreetMap buildings** at street level |
 | Input | Mouse, touch, webcam hand tracking (MediaPipe), custom gestures you train yourself, voice commands with an optional **"Terra" wake word**, **point-and-say** ("put a volcano *here*" resolves to where you pointed as you spoke), WebXR hands and controllers |
 | Displays | Browser, VR/AR headsets, **Looking Glass** holographic displays, **physical spheres** (fisheye and equirectangular output) |
 | Ask | Agentic tool loop over real data (17 tools), GeoJSON + style layers, data-derived layers, step narration, spoken answers, **a fact-checker that traces every number to the tool call that produced it** (tap a number to see its source) |
 | What-If | WebAssembly Priority-Flood (AssemblyScript) in a Web Worker; **WebGPU shallow-water surge model** on high-resolution terrain tiles (CPU fallback); wind field (live GFS or climatology) with **1 million GPU particles**; hurricanes **calibrated on 50 years of real tracks** with land decay and surge risk; **50-member ensembles** with strike probabilities; Lagrangian ash and smoke plumes; wind-driven fire perimeters; meteor impacts |
 | Exposure | A global **population surface** (GeoNames towns + World Bank national totals, dasymetric) so floods report people affected, by country |
-| History | Replay any Atlantic hurricane 1975–2024 against the model; held-out forecast skill vs persistence |
+| History | Replay any hurricane, typhoon or cyclone since 1980 from any ocean against the model (track and wind); held-out forecast skill per basin vs persistence |
 | Live | Active hurricanes with NHC forecast cones, NASA FIRMS fires, USGS earthquakes |
 | Time | Sea level scrubbing 1900–2150 under IPCC AR6 scenarios; NASA GIBS satellite imagery compare with a swipe divider |
 | Ground view | Street-level view of a spot with the simulated water depth, fire and storm conditions, on a real Gaussian Splat capture you load or Google Photorealistic 3D Tiles |

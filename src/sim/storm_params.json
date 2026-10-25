@@ -16,11 +16,66 @@
    "betaU": 0,
    "betaV": 2,
    "tau": 48,
-   "mpiMax": 110,
-   "mpiLat0": 17,
-   "mpiLat1": 45,
-   "tauI": 160,
+   "mpiMax": 105,
+   "mpiLat0": 22,
+   "mpiLat1": 42,
+   "tauI": 240,
    "tauW": 48
+  },
+  "EP": {
+   "steer": 0.3,
+   "betaU": -1.5,
+   "betaV": 2,
+   "tau": 96,
+   "mpiMax": 90,
+   "mpiLat0": 12,
+   "mpiLat1": 35,
+   "tauI": 240,
+   "tauW": 24
+  },
+  "WP": {
+   "steer": 0.6,
+   "betaU": 0,
+   "betaV": 2,
+   "tau": 48,
+   "mpiMax": 120,
+   "mpiLat0": 17,
+   "mpiLat1": 42,
+   "tauI": 144,
+   "tauW": 12
+  },
+  "NI": {
+   "steer": 0.3,
+   "betaU": 0.75,
+   "betaV": 1.5,
+   "tau": 96,
+   "mpiMax": 90,
+   "mpiLat0": 12,
+   "mpiLat1": 35,
+   "tauI": 240,
+   "tauW": 48
+  },
+  "SI": {
+   "steer": 0.3,
+   "betaU": 0.75,
+   "betaV": 2,
+   "tau": 48,
+   "mpiMax": 90,
+   "mpiLat0": 12,
+   "mpiLat1": 35,
+   "tauI": 240,
+   "tauW": 12
+  },
+  "SP": {
+   "steer": 0.3,
+   "betaU": 0.75,
+   "betaV": 2,
+   "tau": 96,
+   "mpiMax": 90,
+   "mpiLat0": 12,
+   "mpiLat1": 35,
+   "tauI": 144,
+   "tauW": 24
   }
  }
 }

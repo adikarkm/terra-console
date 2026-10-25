@@ -15,7 +15,7 @@ The CPU shallow-water engine on synthetic terrain:
 
 ## Unit (`tests/unit.test.mjs`)
 
-Engine modules bundled for Node: geodesy (distances, antimeridian polygons), IPCC scenarios, number provenance (direct, derived, untraced), population surface total, gesture network training, Katrina replay, held-out storm skill > persistence, ensemble probability consistency, city lookup. Plus `tools/test_flood.mjs` (Wasm Priority-Flood: areas and people at +1/2/7/66 m).
+Engine modules bundled for Node: geodesy (distances, antimeridian polygons), IPCC scenarios, number provenance (direct, derived, untraced), population surface total, gesture network training, Katrina replay with intensity, held-out storm track and intensity skill > persistence (Atlantic) and 72 h track skill > persistence in every other basin, Haiyan 2013 in the West Pacific, ensemble probability consistency, city lookup. Plus `tools/test_flood.mjs` (Wasm Priority-Flood: areas and people at +1/2/7/66 m).
 
 ## End-to-end (`tests/e2e/run.py`)
 

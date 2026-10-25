@@ -33,14 +33,14 @@
 - **Buildings.** No 3D buildings yet (Google Photorealistic 3D Tiles are available in ground view with your key).
 - **City elevations** are surveyed values for ~90 cities and a ~6 m estimate elsewhere.
 - **Population** is a modelled 20 km surface; swap in WorldPop or GHS-POP for local studies.
-- **Storm and plume physics** are simplified; the storm model beats persistence by 6–19% on held-out seasons but is far from operational models (~150 km at 72 h). Live GFS steering would improve it; intensity is not yet validated.
+- **Storm and plume physics** are simplified; the cyclone model beats persistence in every basin on held-out seasons (track 2–19%, intensity 8–29%) but is far from operational models (~150 km at 72 h), and its intensity is a statistical relaxation, not a model of rapid intensification. Steering for past storms uses climatology, not the weather of the day (reanalysis winds would improve it).
 - **Ground view** places a splat's origin at the coordinate's ground level; there is no automatic georeferencing of captures.
 - **Multi-user** rooms on the local server are in memory on one process.
 
 ## Ideas
 
 - Rainfall-driven (pluvial) flooding in the shallow-water model.
-- Global basins (IBTrACS) beyond the Atlantic.
+- Reanalysis steering winds (ERA5) for past storms, and sea-surface temperature for intensity.
 - Validating flood extents against observed maps (Copernicus EMS) for past events.
 - Rust port of the kernel with SIMD for the regional tiles.
 - Recording and sharing a session as a replayable timeline.

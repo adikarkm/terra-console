@@ -65,27 +65,32 @@ For a window of up to ~6° (the drawn region, or the view centre):
 
 The wind layer advects ~1 million particles entirely on the GPU (WebGL2 float render targets; state = lat, lon, age, life; the field is uploaded as a 1° float texture). Without float render targets it falls back to 3,500 CPU streaks.
 
-## Hurricanes (`sim/storm.js`)
+## Tropical cyclones (`sim/storm.js`)
 
-The drag sets the genesis point and an initial push that decays with an e-folding time of 12 h. Each hourly step for up to 7 days:
+Hurricanes, typhoons and cyclones use one model with parameters per ocean basin (North Atlantic, Eastern Pacific, Western Pacific, North Indian, South Indian, South Pacific; `basinAt` assigns a point to a basin with IBTrACS-like boundaries). The drag sets the genesis point and an initial push. Each hourly step for up to 7 days:
 
-- **Motion** = 0.85 × steering wind + beta drift (~2.5 m/s poleward and westward) + decaying push.
-- **Intensity** (kt): +0.6 kt/h over warm tropical water (6°–26°), −1.3 kt/h at 30°–40°, −2.6 kt/h beyond 40°. Over land it follows the Kaplan & DeMaria (1995) inland decay, `V(t) = 26.7 + (V₀ − 26.7)·e^(−0.095 t)`, with extra loss over high terrain.
+- **Motion** = steering factor × steering wind (live GFS or climatology) + beta drift (westward and poleward, mirrored in the southern hemisphere) + the initial push, which decays with time scale τ.
+- **Intensity** over water relaxes toward a potential intensity that depends on latitude: `mpiMax` equatorward of `mpiLat0`, falling linearly to 25 kt at `mpiLat1`, with time scale `tauI` when strengthening and `tauW` when weakening. Over land it follows the Kaplan & DeMaria (1995) inland decay, `V(t) = 26.7 + (V₀ − 26.7)·e^(−0.095 t)`, with extra loss over high terrain.
 - **Category** from the Saffir–Simpson thresholds. The run ends when winds fall below 30 kt.
 - **Wind radius** (34 kt) grows with category and latitude.
 - **Impacts**: cities within the 34 kt radius at closest approach; "hurricane winds" inside 40% of it; surge risk where the storm is over water, the city is coastal and its elevation is below the typical peak surge for that category (NHC SLOSH ranges: Cat 1 ~1.5 m … Cat 5 ~7 m).
 
 ### Calibration and validation against history (`sim/validate.js`, `tools/calibrate_storms.mjs`)
 
-693 Atlantic storms 1975–2024 (NOAA HURDAT2 best tracks). From every 12-hourly fix of a tropical storm the model forecasts 24/48/72 h ahead, starting from the observed motion over the previous 12 h (which relaxes to the steering flow with time scale τ). A grid search over the steering factor, beta drift and τ minimised 48 h error on **1980–2014**; skill is reported on held-out **2015–2024**:
+4,083 tropical cyclones from every basin, 1980–2026 (NOAA IBTrACS v04r01, 6-hourly, 1-minute winds from the US agencies, which cover all basins). From every 12-hourly fix of a tropical storm the model forecasts 24/48/72 h ahead from the observed position, intensity and motion over the previous 12 h. For each basin a grid search on **1980–2014** fits first the track (steering factor, beta drift, τ; minimising 48 h position error), then the intensity (`mpiMax`, `mpiLat0`, `mpiLat1`, `tauI`, `tauW`; minimising 48 h wind error). Skill is reported on held-out **2015–2026** against persistence (keep moving the way the storm moved over the last 12 h; keep today's intensity):
 
-| Lead | Model | Persistence | Skill |
-|---|---|---|---|
-| 24 h | 235 km | 252 km | +6% |
-| 48 h | 525 km | 605 km | +13% |
-| 72 h | 821 km | 1,012 km | +19% |
+| Basin | Forecasts | 24 h track | 48 h track | 72 h track | 24 h wind | 48 h wind | 72 h wind |
+|---|---|---|---|---|---|---|---|
+| North Atlantic | 1,969 | +7% | +14% | +19% | +18% | +22% | +27% |
+| Eastern Pacific | 1,854 | +2% | +5% | +8% | +8% | +14% | +19% |
+| Western Pacific | 2,107 | +5% | +9% | +13% | +22% | +27% | +29% |
+| North Indian | 388 | +3% | +6% | +7% | +26% | +25% | +24% |
+| South Indian | 1,597 | +4% | +8% | +13% | +8% | +17% | +19% |
+| South Pacific | 755 | +3% | +7% | +12% | +13% | +18% | +22% |
 
-Fitted: steering 0.45, beta drift (−0.75, +2.0) m/s, τ = 48 h. Before calibration the model was 34–54% *worse* than persistence. For scale, operational NHC 72 h errors are now ~150 km: this is a teaching-grade model driven by climatology, and the table says exactly how good it is.
+Percentages are error reduction versus persistence (positive = better). In the North Atlantic, for example, the 72 h track error is 826 km against 1,012 km for persistence, and the 72 h wind error 17 kt against 24 kt. The fitted parameters are in `src/sim/storm_params.json`; the full report (training and test errors in km and kt) is written to `build/storm_calibration.json`. The South Atlantic has too few storms (3) to fit and uses the defaults.
+
+How to read this honestly: the fitted intensity model is mostly a slow relaxation toward each basin's typical strength, in the spirit of statistical baselines such as SHIFOR, not a physical model of rapid intensification; it beats "no change" because storms regress toward typical intensities. Track forecasts are driven by a climatological or present-day steering field, not the weather on the storm's actual dates. Operational centres reach ~150 km at 72 h; this is a teaching-grade model, and the table says exactly how good it is.
 
 ### Ensembles (`sim/ensemble.js`)
 
